@@ -24,9 +24,25 @@ gw.result$.subscribe((result: RepoResult) => {
         gw.unwatch(result.config);
         // don't forget to unsubscrive...
     } else {
-         if (result.changed === true) {
+        if (result.changed === true) {
             // new version, we can build it, publish to a site... whatever.
             console.log('node-test-server changed', result);
         }
     }
 });
+
+// var spawn = child_process.spawn;
+// var touch1 = spawn('npm', ['run', 'touch1', '--verbose'], { stdio: 'inherit' });
+// touch1.on('error', function(err) {
+//   console.error(err);
+//   process.exit(1);
+// });
+
+
+// const process = spawn(...); // long running process
+// // ... later...
+// if (os.platform() === 'win32') { // process.platform was undefined for me, but this works
+//     execSync(taskkill / F / T / PID ${process.pid }); // windows specific
+// } else {
+//     process.kill();
+// }
