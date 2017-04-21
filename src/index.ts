@@ -1,6 +1,6 @@
 import { GitWatcher, RepoResult } from 'git-repo-watch';
 import { exec } from 'child_process';
-import { Promise } from 'bluebird';
+import * as Promise from 'bluebird';
 
 function promiseFromChildProcess(child) {
     return new Promise(function (resolve, reject) {
