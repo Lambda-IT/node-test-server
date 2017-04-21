@@ -4,7 +4,7 @@ const gw = new GitWatcher();
 
 // Use Sync Fork to check for changes in the upstream an update.
 gw.watch({
-    path: 'd:/projects/node-test-server',
+    path: 'd:/projects/build-test',
     poll: 10,
     remote: 'origin',
     branch: 'master',
@@ -24,10 +24,9 @@ gw.result$.subscribe((result: RepoResult) => {
         gw.unwatch(result.config);
         // don't forget to unsubscrive...
     } else {
-        if (result.changed === true) {
+         if (result.changed === true) {
             // new version, we can build it, publish to a site... whatever.
-
-            console.log('node-test-server changed', result.config);
+            console.log('node-test-server changed', result);
         }
     }
 });
