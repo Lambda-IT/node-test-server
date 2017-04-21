@@ -5,6 +5,7 @@ const gw = new GitWatcher();
 // Use Sync Fork to check for changes in the upstream an update.
 gw.watch({
     path: 'd:/projects/node-test-server',
+    poll: 10,
     remote: 'origin',
     branch: 'master',
     strict: true
