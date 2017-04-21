@@ -1,5 +1,13 @@
 import { GitWatcher, RepoResult } from 'git-repo-watch';
 import { exec } from 'child_process';
+import { Promise } from 'bluebird';
+
+function promiseFromChildProcess(child) {
+    return new Promise(function (resolve, reject) {
+        child.addListener('error', reject);
+        child.addListener('exit', resolve);
+    });
+}
 
 const gw = new GitWatcher();
 
@@ -28,14 +36,19 @@ gw.result$.subscribe((result: RepoResult) => {
         if (result.changed === true) {
             // new version, we can build it, publish to a site... whatever.
             console.log('node-test-server changed', result);
-            const test = exec(`cd ${result.config.path} && npm install && tsc -p tsconfig.json && npm test`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`exec error: ${error}`);
-                    return;
-                }
-                console.log(`stdout: ${stdout}`);
-                console.log(`stderr: ${stderr}`);
+
+            const child = exec(`cd ${result.config.path} && npm install && tsc -p tsconfig.json && npm test`);
+            child.stdout.on('data', function (data) {
+                console.log('stdout: ' + data);
             });
+
+            return promiseFromChildProcess(child)
+                .then(() => {
+                    console.log('testing done');
+                })
+                .catch((error) => {
+                    console.error(`test error: ${error}`);
+                });
         }
     }
 });

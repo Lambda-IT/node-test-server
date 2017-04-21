@@ -17,10 +17,12 @@
   },
   "homepage": "https://github.com/Lambda-IT/node-test-server#readme",
   "dependencies": {
+    "bluebird": "^3.5.0",
     "git-repo-watch": "^1.0.0"
   },
   "devDependencies": {
     "@types/assert": "0.0.31",
+    "@types/bluebird": "^3.5.2",
     "@types/mocha": "^2.2.41",
     "@types/node": "^7.0.13",
     "mocha": "^3.2.0",
