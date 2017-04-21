@@ -28,7 +28,7 @@ gw.result$.subscribe((result: RepoResult) => {
         if (result.changed === true) {
             // new version, we can build it, publish to a site... whatever.
             console.log('node-test-server changed', result);
-            const test = exec(`cd ${result.config.path} && npm install && tsc -w tsconfig.json && npm test`, (error, stdout, stderr) => {
+            const test = exec(`cd ${result.config.path} && npm install && tsc -p tsconfig.json && npm test`, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`exec error: ${error}`);
                     return;
