@@ -1,0 +1,26 @@
+{
+  "name": "node-test-server",
+  "version": "1.0.0",
+  "description": "test server for automated tests and deployment",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://edispring@github.com/Lambda-IT/node-test-server.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Lambda-IT/node-test-server/issues"
+  },
+  "homepage": "https://github.com/Lambda-IT/node-test-server#readme",
+  "dependencies": {
+    "git-repo-watch": "^1.0.0"
+  },
+  "devDependencies": {
+    "tslint": "^5.1.0",
+    "typescript": "^2.2.2"
+  }
+}
