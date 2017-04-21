@@ -1,4 +1,5 @@
 import { GitWatcher, RepoResult } from 'git-repo-watch';
+import { exec } from 'child_process';
 
 const gw = new GitWatcher();
 
@@ -27,6 +28,14 @@ gw.result$.subscribe((result: RepoResult) => {
         if (result.changed === true) {
             // new version, we can build it, publish to a site... whatever.
             console.log('node-test-server changed', result);
+            const test = exec(`cd ${result.config.path} && npm install && tsc -w tsconfig.json && npm test`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`exec error: ${error}`);
+                    return;
+                }
+                console.log(`stdout: ${stdout}`);
+                console.log(`stderr: ${stderr}`);
+            });
         }
     }
 });

@@ -5,7 +5,7 @@ const path = 'd:/projects/build-test/'
 
 describe('runs npm tests', function () {
     it('it should return success', (done) => {
-        const test = exec(`npm install cd ${path} && npm test`, (error, stdout, stderr) => {
+        const test = exec(`cd ${path} && npm install && npm test`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`);
                 return done(error);
