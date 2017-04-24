@@ -99,6 +99,8 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                 })
                 .then(() => {
                     // restart servers
+                    if (!configuration.restartScript) return;
+
                     const childRestart = exec(`${configuration.restartScript}`);
                     childRestart.stdout.on('data', (data) => {
                         result.data.push('' + data);
