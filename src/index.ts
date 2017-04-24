@@ -1,6 +1,12 @@
+import { configuration } from './config';
+
+import * as _ from 'lodash';
 import { GitWatcher, RepoResult } from 'git-repo-watch';
 import { exec } from 'child_process';
 import * as Promise from 'bluebird';
+import * as fsExtra from 'fs-extra';
+
+const fs: any = Promise.promisifyAll(fsExtra);
 
 function promiseFromChildProcess(child) {
     return new Promise(function (resolve, reject) {
@@ -9,23 +15,21 @@ function promiseFromChildProcess(child) {
     });
 }
 
+function deployFilterFunc(src, dest) {
+    return src.path.indexOf('node_modules') < 0;
+}
+
 const gw = new GitWatcher();
 
 // Use Sync Fork to check for changes in the upstream an update.
-gw.watch({
-    path: 'd:/projects/build-test',
-    poll: 10,
-    remote: 'origin',
-    branch: 'master',
-    strict: true
-});
+gw.watch(configuration);
 
 gw.check$.subscribe(info => {
     // will fire every check.
-    console.log('node-test-server checked');
+    console.log(`${configuration.path} checked`);
 });
 
-gw.result$.subscribe((result: RepoResult) => {
+gw.result$.subscribe((result: RepoResult & { data?: string[] }) => {
     // will fire once a check is finished.
     // When using Sync Fork the origin is now updated (and local ofcourse)
 
@@ -35,16 +39,53 @@ gw.result$.subscribe((result: RepoResult) => {
     } else {
         if (result.changed === true) {
             // new version, we can build it, publish to a site... whatever.
-            console.log('node-test-server changed', result);
+            console.log(`${result.config.path} changed`, result);
+            result.data = [];
 
-            const child = exec(`cd ${result.config.path} && npm install && tsc -p tsconfig.json && npm test`);
-            child.stdout.on('data', function (data) {
-                console.log('stdout: ' + data);
+            const child = exec(`cd ${result.config.path} && ${configuration.testScript}`);
+            child.stdout.on('data', (data) => {
+                result.data.push('' + data);
             });
 
             return promiseFromChildProcess(child)
                 .then(() => {
                     console.log('testing done');
+                    console.log('log tail: ');
+                    console.log(_.takeRight(result.data, 5).join('\n'));
+                })
+                .then(() => {
+                    // deploy
+                    return fs.copyAsync(configuration.path, configuration.deployPath, { filter: deployFilterFunc })
+                        .then(() => {
+                            console.log('deployment copy success!')
+                        });
+                })
+                .then(() => {
+                    const childDeploy = exec(`cd ${configuration.deployPath} && ${configuration.deployScript}`);
+                    childDeploy.stdout.on('data', (data) => {
+                        result.data.push('' + data);
+                    });
+                    return promiseFromChildProcess(childDeploy);
+                })
+                .then(() => {
+                    console.log('deployScript done');
+                    console.log(_.takeRight(result.data, 5).join('\n'));
+                })
+                .then(() => {
+                    // restart servers
+                    const childRestart = exec(`${configuration.restartScript}`);
+                    childRestart.stdout.on('data', (data) => {
+                        result.data.push('' + data);
+                    });
+                    return promiseFromChildProcess(childRestart);
+                })
+                .then(() => {
+                    console.log('restartScript done');
+                    console.log(_.takeRight(result.data, 5).join('\n'));
+                })
+                .then(() => {
+                    console.log('deployment success!');
+                    console.log('success!');
                 })
                 .catch((error) => {
                     console.error(`test error: ${error}`);
@@ -52,19 +93,3 @@ gw.result$.subscribe((result: RepoResult) => {
         }
     }
 });
-
-// var spawn = child_process.spawn;
-// var touch1 = spawn('npm', ['run', 'touch1', '--verbose'], { stdio: 'inherit' });
-// touch1.on('error', function(err) {
-//   console.error(err);
-//   process.exit(1);
-// });
-
-
-// const process = spawn(...); // long running process
-// // ... later...
-// if (os.platform() === 'win32') { // process.platform was undefined for me, but this works
-//     execSync(taskkill / F / T / PID ${process.pid }); // windows specific
-// } else {
-//     process.kill();
-// }
