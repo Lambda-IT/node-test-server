@@ -2,6 +2,7 @@ import { configuration } from './config';
 
 import * as _ from 'lodash';
 import { GitWatcher, RepoResult } from 'git-repo-watch';
+import * as Rx from 'rxjs/Rx';
 import { exec } from 'child_process';
 import * as Promise from 'bluebird';
 import * as fsExtra from 'fs-extra';
@@ -16,24 +17,29 @@ function promiseFromChildProcess(child) {
 }
 
 function deployFilterFunc(src, dest) {
-    console.log('copy ' , src);
+    console.log('copy ', src);
     return src.indexOf('node_modules') < 0;
 }
 
 const gw = new GitWatcher();
+const processing$: Rx.BehaviorSubject<boolean> = new Rx.BehaviorSubject(false);
+processing$.do(x => { console.log('processing changed', x); });
 
 // Use Sync Fork to check for changes in the upstream an update.
 gw.watch(configuration);
 
-gw.check$.subscribe(info => {
+gw.check$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(info => {
     // will fire every check.
     console.log(`${configuration.path} checked`);
 });
 
-gw.result$.subscribe((result: RepoResult & { data?: string[] }) => {
+gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
     // will fire once a check is finished.
     // When using Sync Fork the origin is now updated (and local ofcourse)
 
+    const result: RepoResult & { data?: string[] } = x[0];
+
+    processing$.next(true);
     if (result.error) {
         gw.unwatch(result.config);
         // don't forget to unsubscrive...
@@ -56,7 +62,7 @@ gw.result$.subscribe((result: RepoResult & { data?: string[] }) => {
                 })
                 .then(() => {
                     // deploy
-                    return fs.copyAsync(configuration.path, configuration.deployPath, { filter: deployFilterFunc, overwrite : true })
+                    return fs.copyAsync(configuration.path, configuration.deployPath, { filter: deployFilterFunc, overwrite: true })
                         .then(() => {
                             console.log('deployment copy success!')
                         });
@@ -90,6 +96,9 @@ gw.result$.subscribe((result: RepoResult & { data?: string[] }) => {
                 })
                 .catch((error) => {
                     console.error(`test error: ${error}`);
+                })
+                .finally(() => {
+                    processing$.next(false);
                 });
         }
     }

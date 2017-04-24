@@ -20,7 +20,9 @@
     "bluebird": "^3.5.0",
     "fs-extra": "^2.1.2",
     "git-repo-watch": "^1.0.0",
-    "lodash": "^4.17.4"
+    "lodash": "^4.17.4",
+    "rx": "^4.1.0",
+    "rx-js": "0.0.0"
   },
   "devDependencies": {
     "@types/assert": "0.0.31",
