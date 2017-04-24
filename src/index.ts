@@ -18,7 +18,7 @@ function promiseFromChildProcess(child) {
 
 function deployFilterFunc(src, dest) {
     console.log('copy ', src);
-    return src.indexOf('node_modules') < 0;
+    return src.indexOf('node_modules') < 0 && src.indexOf('.git') < 0;
 }
 
 const gw = new GitWatcher();
@@ -52,7 +52,9 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
             result.data = [];
 
             const child = exec(`cd ${result.config.path} && ${configuration.testScript}`);
+            child.addListener('error', e => { console.error(e); });
             child.stdout.on('data', (data) => {
+                console.log('testing: ', data);
                 result.data.push('' + data);
             });
 
@@ -83,8 +85,12 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                 .then(() => {
                     // restart servers
                     const childRestart = exec(`${configuration.restartScript}`);
+                    child.addListener('error', e => { console.error('err', e); });
                     childRestart.stdout.on('data', (data) => {
                         result.data.push('' + data);
+                    });
+                    childRestart.stderr.on('data', (data) => {
+                        console.error('stderr', e);
                     });
                     return promiseFromChildProcess(childRestart);
                 })
