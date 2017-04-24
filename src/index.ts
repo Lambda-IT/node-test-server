@@ -90,7 +90,7 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                         result.data.push('' + data);
                     });
                     childRestart.stderr.on('data', (data) => {
-                        console.error('stderr', e);
+                        console.error('stderr', data);
                     });
                     return promiseFromChildProcess(childRestart);
                 })
