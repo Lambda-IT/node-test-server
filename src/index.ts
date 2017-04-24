@@ -16,7 +16,8 @@ function promiseFromChildProcess(child) {
 }
 
 function deployFilterFunc(src, dest) {
-    return src.path.indexOf('node_modules') < 0;
+    console.log('copy ' , src);
+    return src.indexOf('node_modules') < 0;
 }
 
 const gw = new GitWatcher();
@@ -55,7 +56,7 @@ gw.result$.subscribe((result: RepoResult & { data?: string[] }) => {
                 })
                 .then(() => {
                     // deploy
-                    return fs.copyAsync(configuration.path, configuration.deployPath, { filter: deployFilterFunc })
+                    return fs.copyAsync(configuration.path, configuration.deployPath, { filter: deployFilterFunc, overwrite : true })
                         .then(() => {
                             console.log('deployment copy success!')
                         });
