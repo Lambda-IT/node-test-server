@@ -39,12 +39,14 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
 
     const result: RepoResult & { data?: string[] } = x[0];
 
-    processing$.next(true);
     if (result.error) {
         gw.unwatch(result.config);
         // don't forget to unsubscrive...
     } else {
         if (result.changed === true) {
+            console.log(`start processing`, x);
+            processing$.next(true);
+
             // new version, we can build it, publish to a site... whatever.
             console.log(`${result.config.path} changed`, result);
             result.data = [];
