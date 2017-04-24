@@ -6,9 +6,9 @@ const config = {
     branch: 'master',
     strict: false,
     path: 'd:/projects/build-test',
-    testScript: 'npm install && tsc -p tsconfig.json && npm test',
+    buildScript: 'npm install && tsc -p tsconfig.json',
+    testScript: ' npm test',
     deployPath: 'd:/projects/deploy-test',
-    deployScript: 'npm install && tsc -p tsconfig.json',
     restartScript: 'pm2 restart'
 }
 

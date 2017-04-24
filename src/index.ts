@@ -13,6 +13,7 @@ function promiseFromChildProcess(child) {
     return new Promise(function (resolve, reject) {
         child.addListener('error', reject);
         child.addListener('exit', resolve);
+        child.stderr.on('data', reject);
     });
 }
 
@@ -51,18 +52,31 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
             console.log(`${result.config.path} changed`, result);
             result.data = [];
 
-            const child = exec(`cd ${result.config.path} && ${configuration.testScript}`);
-            child.addListener('error', e => { console.error(e); });
-            child.stdout.on('data', (data) => {
+            const childBuild = exec(`cd ${result.config.path} && ${configuration.buildScript}`);
+            childBuild.stdout.on('data', (data) => {
                 console.log('testing: ', data);
                 result.data.push('' + data);
             });
 
-            return promiseFromChildProcess(child)
+            return promiseFromChildProcess(childBuild)
+                .then(() => {
+                    console.log('build done');
+                    console.log(_.takeRight(result.data, 5).join('\n'));
+                    result.data = [];
+                })
+                .then(() => {
+                    const childTest = exec(`cd ${configuration.deployPath} && ${configuration.testScript}`);
+                    childTest.stdout.on('data', (data) => {
+                        result.data.push('' + data);
+                    });
+
+                    return promiseFromChildProcess(childTest);
+                })
                 .then(() => {
                     console.log('testing done');
                     console.log('log tail: ');
                     console.log(_.takeRight(result.data, 5).join('\n'));
+                    result.data = [];
                 })
                 .then(() => {
                     // deploy
@@ -72,7 +86,7 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                         });
                 })
                 .then(() => {
-                    const childDeploy = exec(`cd ${configuration.deployPath} && ${configuration.deployScript}`);
+                    const childDeploy = exec(`cd ${configuration.deployPath} && ${configuration.buildScript}`);
                     childDeploy.stdout.on('data', (data) => {
                         result.data.push('' + data);
                     });
@@ -81,17 +95,15 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                 .then(() => {
                     console.log('deployScript done');
                     console.log(_.takeRight(result.data, 5).join('\n'));
+                    result.data = [];
                 })
                 .then(() => {
                     // restart servers
                     const childRestart = exec(`${configuration.restartScript}`);
-                    child.addListener('error', e => { console.error('err', e); });
                     childRestart.stdout.on('data', (data) => {
                         result.data.push('' + data);
                     });
-                    childRestart.stderr.on('data', (data) => {
-                        console.error('stderr', data);
-                    });
+
                     return promiseFromChildProcess(childRestart);
                 })
                 .then(() => {
