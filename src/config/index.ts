@@ -4,7 +4,7 @@ const config = {
     poll: 10,
     remote: 'origin',
     branch: 'master',
-    strict: true,
+    strict: false,
     path: 'd:/projects/build-test',
     testScript: 'npm install && tsc -p tsconfig.json && npm test',
     deployPath: 'd:/projects/deploy-test',
