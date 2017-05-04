@@ -11,10 +11,10 @@ const config = {
     strict: false,
     path: 'd:/projects/build-test',
     buildPath: 'd:/projects/build-test',
-    buildScript: 'npm install && npm build',
+    buildScript: 'npm install && npm run build',
     testScript: 'npm test',
     deployPath: 'd:/projects/deploy-test',
-    // restartScript: 'pm2 restart'
+    // restartScript: 'pm2 zem-web-api restart'
 }
 
 export const configuration = _.merge(config, require(`./${process.env.NODE_ENV || 'development'}`).config || {});
