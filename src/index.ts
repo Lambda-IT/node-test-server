@@ -21,7 +21,9 @@ const fs: any = Promise.promisifyAll(fsExtra);
 function promiseFromChildProcess(child) {
     return new Promise(function (resolve, reject) {
         child.addListener('error', reject);
-        child.addListener('exit', resolve);
+        child.addListener('exit', (result, ...rest) => {
+            result === 0 ? resolve(result) : reject(result);
+        });
     });
 }
 
@@ -86,7 +88,8 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.log('log tail: ');
                     console.log(_.takeRight(result.data, 5).join('\n'));
 
-                    if (_.last(result.data).indexOf('fail') !== -1)
+                    const lastLogEntry = _.last(result.data);
+                    if (!!lastLogEntry && lastLogEntry.indexOf('fail') !== -1)
                         throw new Error('Tests faild: ' + _.last(result.data));
                 })
                 .then(() => {
