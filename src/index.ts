@@ -18,12 +18,29 @@ interface Branch {
 
 const fs: any = Promise.promisifyAll(fsExtra);
 
-function promiseFromChildProcess(child) {
+function execAsync(args) {
     return new Promise(function (resolve, reject) {
-        child.addListener('error', reject);
-        child.addListener('exit', (result, ...rest) => {
-            result === 0 ? resolve(result) : reject(result);
-        });
+        function callback(err, stdout, stderr) {
+            if (err) {
+                const commandStr = args[0] + (Array.isArray(args[1]) ? (' ' + args[1].join(' ')) : '');
+                err.message += ' `' + commandStr + '` (exited with error code ' + err.code + ')';
+                err.stdout = stdout;
+                err.stderr = stderr;
+                const cpError = {
+                    error: err,
+                    stdout: stdout,
+                    stderr: stderr
+                };
+                reject(cpError);
+            } else {
+                resolve({
+                    stdout: stdout,
+                    stderr: stderr
+                });
+            }
+        }
+
+        const cp = exec(args, callback);
     });
 }
 
@@ -55,42 +72,24 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
 
             return Promise.resolve()
                 .then(() => {
-                    result.data = [];
-
                     const gitWrapper = new GitWrapper(simpleGit(configuration.path));
                     return gitWrapper.getCurrentBranch()
                 })
                 .then(branch => {
                     result.branch = branch;
                     console.log('Branch', branch);
-
-                    const childBuild = exec(`cd ${configuration.buildPath} && ${configuration.buildScript}`);
-                    childBuild.stdout.on('data', (data) => {
-                        console.log(data);
-                        result.data.push('' + data);
-                    });
-                    return promiseFromChildProcess(childBuild);
+                    return execAsync(`cd ${configuration.buildPath} && ${configuration.buildScript}`);
                 })
-                .then(() => {
+                .then((buildResult: any) => {
                     console.log('build done');
-                    console.log(_.takeRight(result.data, 5).join('\n'));
+                    console.log('buildResult', buildResult.stdout);
                 })
                 .then(() => {
-                    const childTest = exec(`cd ${configuration.buildPath} && ${configuration.testScript}`);
-                    childTest.stdout.on('data', (data) => {
-                        result.data.push('' + data);
-                    });
-
-                    return promiseFromChildProcess(childTest);
+                    return execAsync(`cd ${configuration.buildPath} && ${configuration.testScript}`);
                 })
-                .then(() => {
+                .then((testResult: any) => {
                     console.log('testing done');
-                    console.log('log tail: ');
-                    console.log(_.takeRight(result.data, 5).join('\n'));
-
-                    const lastLogEntry = _.last(result.data);
-                    if (!!lastLogEntry && lastLogEntry.indexOf('fail') !== -1)
-                        throw new Error('Tests faild: ' + _.last(result.data));
+                    console.log('testResult', testResult.stdout);
                 })
                 .then(() => {
                     // deploy
@@ -100,39 +99,32 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                         });
                 })
                 .then(() => {
-                    const childDeploy = exec(`cd ${configuration.deployPath} && ${configuration.buildScript}`);
-                    childDeploy.stdout.on('data', (data) => {
-                        result.data.push('' + data);
-                    });
-                    return promiseFromChildProcess(childDeploy);
+                    return execAsync(`cd ${configuration.deployPath} && ${configuration.buildScript}`);
                 })
-                .then(() => {
-                    console.log('deployScript done');
-                    console.log(_.takeRight(result.data, 5).join('\n'));
+                .then((deployResult: any) => {
+                    console.log('deploying done');
+                    console.log('deployResult', deployResult.stdout);
                 })
                 .then(() => {
                     // restart servers
                     if (!configuration.restartScript) return;
 
-                    const childRestart = exec(`${configuration.restartScript}`);
-                    childRestart.stdout.on('data', (data) => {
-                        result.data.push('' + data);
-                    });
-
-                    return promiseFromChildProcess(childRestart);
+                    return execAsync(`${configuration.restartScript}`);
                 })
-                .then(() => {
-                    console.log('restartScript done');
-                    console.log(_.takeRight(result.data, 5).join('\n'));
+                .then((restartResult: any) => {
+                    if (restartResult) {
+                        console.log('restarting done');
+                        console.log('restartResult', restartResult.stdout);
+                    }
                 })
                 .then(() => {
                     console.log('deployment success!');
                     console.log('BUILD/TEST SUCCESS!, commit: ' + result.branch.label + ', ' + result.branch.commit);
                 })
                 .catch((error) => {
-                    console.log(_.takeRight(result.data, 10).join('\n'));
-                    console.error(`BUILD/TEST ERROR: ${error}, commit: ${result.branch.commit}`);
-                    const msg = { text: configuration.failedText + '\ncommit:' +  result.branch.label + ', ' + result.branch.commit + '\n' + _.takeRight(result.data, 5).join('\n'), channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
+                    console.error(`BUILD/TEST ERROR, commit: ${result.branch.commit}`);
+                    console.error(`Log: ${error.stderr || error}`);
+                    const msg = { text: configuration.failedText + '\ncommit:' + result.branch.label + ', ' + result.branch.commit + '\n' + (error.stderr || error), channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
                     if (!configuration.isDebug)
                         return notifySlack(configuration.slackPath, JSON.stringify(msg));
                 })
