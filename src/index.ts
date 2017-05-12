@@ -92,6 +92,10 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.log('testResult', testResult.stdout);
                 })
                 .then(() => {
+                    // delete dest
+                    return fs.emptyDirAsync(configuration.deployPath);
+                })
+                .then(() => {
                     // deploy
                     return fs.copyAsync(configuration.path, configuration.deployPath, { filter: deployFilterFunc, overwrite: true })
                         .then(() => {
