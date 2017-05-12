@@ -126,9 +126,10 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.log('BUILD/TEST SUCCESS!, commit: ' + result.branch.label + ', ' + result.branch.commit);
                 })
                 .catch((error) => {
-                    console.error(`BUILD/TEST ERROR, commit: ${result.branch.commit}`);
-                    console.error(`Log: ${error.stderr || error}`);
-                    const msg = { text: configuration.failedText + '\ncommit:' + result.branch.label + ', ' + result.branch.commit + '\n' + (error.stderr || error), channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
+                    console.error(`BUILD/TEST ERROR, commit: ${result.branch.commit}`, error.error);
+                    console.error(`Log: ${error.stdout}`);
+                    console.error(`ERROR Log: ${error.stderr || error}`);
+                    const msg = { text: configuration.failedText + '\ncommit:' + result.branch.label + ', ' + result.branch.commit + '\n' + (error.error || error.stderr), channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
                     if (!configuration.isDebug)
                         return notifySlack(configuration.slackPath, JSON.stringify(msg));
                 })
