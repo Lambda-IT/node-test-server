@@ -5,6 +5,7 @@ const config = {
     slackChannel: '#zem',
     slackUser: 'zem-build',
     failedText: 'ZEM build failed!',
+    successText: 'ZEM build SUCCESS!',
     poll: 60,
     remote: 'origin',
     branch: 'master',
