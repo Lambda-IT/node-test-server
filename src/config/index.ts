@@ -2,7 +2,7 @@ import * as _ from 'lodash';
 
 const config = {
     slackPath: '/services/T02JX7JE0/B52QJB797/X2cagdUz58OPML6OzjfaUUfJ',
-    slackChannel: '#zem',
+    slackChannel: '#zem-development',
     slackUser: 'zem-build',
     failedText: 'ZEM build failed!',
     successText: 'ZEM build SUCCESS!',
