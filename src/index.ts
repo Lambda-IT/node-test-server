@@ -110,6 +110,13 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.log('deployResult', deployResult.stdout);
                 })
                 .then(() => {
+                    return execAsync(`grep '%COMMIT%' ${configuration.deployPath}/ | xargs sed -i '${result.branch.commit}'`);
+                })
+                .then((markCommitResult: any) => {
+                    console.log('including commit done');
+                    console.log('markCommitResult', markCommitResult.stdout);
+                })
+                .then(() => {
                     // restart servers
                     if (!configuration.restartScript) return;
 
@@ -134,7 +141,13 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.error(`BUILD/TEST ERROR, commit: ${result.branch.commit}`, error.error);
                     // console.error(`Log: ${error.stdout}`);
                     console.error(`ERROR Log: ${error.stderr || error}`);
-                    const msg = { text: configuration.failedText + '\ncommit:' + result.branch.label + ', ' + result.branch.commit + '\n' + _.takeRight(<any[]>error.stdout, 200).join() + '\nERORR' + _.takeRight(<any[]>error.error, 500).join(), channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
+                    let stdout = '' + error.stdout;
+                    if (stdout.length > 500) stdout = stdout.substr(-500);
+
+                    let errorLocal = '' + error.error;
+                    if (errorLocal.length > 1000) errorLocal = errorLocal.substr(-1000);
+
+                    const msg = { text: configuration.failedText + '\ncommit:' + result.branch.label + ', ' + result.branch.commit + '\n' + stdout + '\nERORR: ' + errorLocal, channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
                     if (!configuration.isDebug) {
                         return notifySlack(configuration.slackPath, JSON.stringify(msg));
                     }
