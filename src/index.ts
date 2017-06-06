@@ -92,7 +92,7 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.log('testResult', testResult.stdout);
                 })
                 .then(() => {
-                    return execAsync(`rsync ${configuration.buildPath} ${configuration.deployPath}`);
+                    return execAsync(`rsync -rtl ${configuration.buildPath} ${configuration.deployPath}`);
                 })
                 .then((deployResult: any) => {
                     console.log('deploying done');
