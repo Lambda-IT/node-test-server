@@ -92,25 +92,14 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.log('testResult', testResult.stdout);
                 })
                 .then(() => {
-                    // delete dest
-                    return fs.emptyDirAsync(configuration.deployPath);
-                })
-                .then(() => {
-                    // deploy
-                    return fs.copyAsync(configuration.path, configuration.deployPath, { filter: deployFilterFunc, overwrite: true })
-                        .then(() => {
-                            console.log('deployment copy success!')
-                        });
-                })
-                .then(() => {
-                    return execAsync(`cd ${configuration.deployPath} && ${configuration.buildScript}`);
+                    return execAsync(`rsync ${configuration.buildPath} ${configuration.deployPath}`);
                 })
                 .then((deployResult: any) => {
                     console.log('deploying done');
                     console.log('deployResult', deployResult.stdout);
                 })
                 .then(() => {
-                    return execAsync(`grep -rl '%COMMIT%' ${configuration.deployPath} | xargs sed -i '${result.branch.commit}'`);
+                    return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${result.branch.commit}/'`);
                 })
                 .then((markCommitResult: any) => {
                     console.log('including commit done');

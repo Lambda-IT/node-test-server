@@ -16,6 +16,7 @@ const config = {
     testScript: 'cd Backend && npm test',
     deployPath: 'd:/projects/deploy-test',
     // restartScript: 'pm2 zem-web-api restart'
+    commitTag : '%%COMMIT%%'
 }
 
 export const configuration = _.merge(config, require(`./${process.env.NODE_ENV || 'development'}`).config || {});
