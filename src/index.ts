@@ -110,7 +110,7 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                     console.log('deployResult', deployResult.stdout);
                 })
                 .then(() => {
-                    return execAsync(`grep '%COMMIT%' ${configuration.deployPath}/ | xargs sed -i '${result.branch.commit}'`);
+                    return execAsync(`grep -rl '%COMMIT%' ${configuration.deployPath} | xargs sed -i '${result.branch.commit}'`);
                 })
                 .then((markCommitResult: any) => {
                     console.log('including commit done');
