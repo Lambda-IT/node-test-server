@@ -64,6 +64,7 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
     const result: RepoResult & { data?: string[], branch?: Branch } = x[0];
 
     if (result.error) {
+        console.error(`error processing`, result.error);
         gw.unwatch(result.config);
     } else {
         if (result.changed === true || configuration.isDebug) {
