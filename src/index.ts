@@ -51,24 +51,30 @@ function deployFilterFunc(src, dest) {
 
 const gw = new GitWatcher();
 const processing$: Rx.BehaviorSubject<boolean> = new Rx.BehaviorSubject(false);
-processing$.do(x => { console.log('processing changed', x); });
+processing$.asObservable().do(x => { console.log('processing changed', x); });
 
 // Use Sync Fork to check for changes in the upstream an update.
 gw.watch(configuration);
 
-gw.check$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(info => {
+const build$ = gw.check$
+.window(processing$.asObservable())
+.withLatestFrom(processing$)
+.flatMap(([c$, isBuilding]) => (isBuilding ? c$.takeLast(1) : c$))
+.flatMap(build);
+
+build$.subscribe(info => {
     console.log(`${new Date().toTimeString()} ${configuration.path} checked`);
 });
 
-gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
-    const result: RepoResult & { data?: string[], branch?: Branch } = x[0];
+function build(commit) {
+    const result: RepoResult & { data?: string[], branch?: Branch } = commit[0];
 
     if (result.error) {
         console.error(`error processing`, result.error);
         gw.unwatch(result.config);
     } else {
         if (result.changed === true || configuration.isDebug) {
-            console.log(`start processing`, x);
+            console.log(`start processing`, commit);
             processing$.next(true);
 
             return Promise.resolve()
@@ -147,4 +153,4 @@ gw.result$.withLatestFrom(processing$).filter(x => !x[1]).subscribe(x => {
                 });
         }
     }
-});
+}
