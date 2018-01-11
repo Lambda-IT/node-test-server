@@ -113,7 +113,7 @@ Observable
             .then(x => repo.status().then(status => status.behind))
             .then(behind => {
                 console.log(`[git] Repository is ${behind} commit(s) behind`);
-                if (behind > 0) {
+                if (behind > 0 || configuration.isDebug) {
                     processing$.next(true);
                     console.log(`[git] Pulling from remote`);
                     return repo.pull()
@@ -160,7 +160,7 @@ function build(branch) {
         })
         .then(() => {
             currentStep = DeploySteps.PostDeploy;
-            return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${deploy.branch.commit}/'`);
+            return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${branch.commit}/'`);
         })
         .then((markCommitResult: any) => {
             console.log('[deploy] Including commit done');
