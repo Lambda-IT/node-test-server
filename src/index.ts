@@ -39,7 +39,7 @@ function execParallel(buildTasks: BuildTask, buildPath: string) {
     const progress: TaskProgress = tasks.reduce((acc, task) => ({...acc, [task]: { done: false }}), {});
     return Promise
         .mapSeries(tasks, task => {
-                return Promise.map(buildTasks[task], command => execAsync(command, buildPath, task))
+                return Promise.map(buildTasks[task], command => execAsync(command, buildPath))
                     .then(result => {
                         console.log(`[deploy] ${task} - Completed`);
                         progress[task].done = true;
@@ -57,11 +57,11 @@ function execParallel(buildTasks: BuildTask, buildPath: string) {
         })
 }
 
-function execAsync(args, buildPath: string | null = null, task: string | null = null) {
+function execAsync(args, buildPath: string | null = null) {
     return new Promise(function (resolve, reject) {
         function callback(error, stdout, stderr) {
             if (error) {
-                console.error(`[deploy] ${task} - X "${args}"`, error);
+                console.error(`[deploy] X "${args}"`, error);
                 const commandStr = args[0] + (Array.isArray(args[1]) ? (' ' + args[1].join(' ')) : '');
                 error.message += ' `' + commandStr + '` (exited with error code ' + error.code + ')';
                 error.stdout = stdout;
@@ -73,7 +73,7 @@ function execAsync(args, buildPath: string | null = null, task: string | null = 
                 };
                 reject(cpError);
             } else {
-                console.log(`[deploy] ${task} - ✓ "${args}"`);
+                console.log(`[deploy] ✓ "${args}"`);
                 resolve({
                     stdout: stdout,
                     stderr: stderr
