@@ -39,7 +39,7 @@ function execParallel(buildTasks: BuildTask, buildPath: string) {
     const progress: TaskProgress = tasks.reduce((acc, task) => ({...acc, [task]: { done: false }}), {});
     return Promise
         .mapSeries(tasks, task => {
-                return Promise.map(buildTasks[task], command => execAsync(command, buildPath))
+                return Promise.map(buildTasks[task], command => execAsync(command, buildPath, task))
                     .then(result => {
                         console.log(`[deploy] ${task} - Completed`);
                         progress[task].done = true;
@@ -57,21 +57,23 @@ function execParallel(buildTasks: BuildTask, buildPath: string) {
         })
 }
 
-function execAsync(args, buildPath: string | null = null) {
+function execAsync(args, buildPath: string | null = null, task: string | null = null) {
     return new Promise(function (resolve, reject) {
-        function callback(err, stdout, stderr) {
-            if (err) {
+        function callback(error, stdout, stderr) {
+            if (error) {
+                console.error(`[deploy] ${task} - X "${args}"`, error);
                 const commandStr = args[0] + (Array.isArray(args[1]) ? (' ' + args[1].join(' ')) : '');
-                err.message += ' `' + commandStr + '` (exited with error code ' + err.code + ')';
-                err.stdout = stdout;
-                err.stderr = stderr;
+                error.message += ' `' + commandStr + '` (exited with error code ' + error.code + ')';
+                error.stdout = stdout;
+                error.stderr = stderr;
                 const cpError = {
-                    error: err,
+                    error: error,
                     stdout: stdout,
                     stderr: stderr
                 };
                 reject(cpError);
             } else {
+                console.log(`[deploy] ${task} - ✓ "${args}"`);
                 resolve({
                     stdout: stdout,
                     stderr: stderr
@@ -134,23 +136,24 @@ function build(branch) {
     console.log(`[deploy] Start processing`, branch);
     return Promise.resolve()
         .then(() => {
+            console.log('[deploy] Build started');
             return execParallel(configuration.buildScript, configuration.buildPath);
         })
         .then((buildResult: any) => {
             console.log('[deploy] Build done');
             console.log('[deploy] BuildResult:', buildResult);
-            console.log('[deploy] ######################');
         })
         .then(() => {
+            console.log('[deploy] Testing started');
             currentStep = DeploySteps.Test;
             return execParallel(configuration.testScript, configuration.buildPath);
         })
         .then((testResult: any) => {
             console.log('[deploy] Testing done');
             console.log('[deploy] TestResult:', testResult);
-            console.log('[deploy] ######################');
         })
         .then(() => {
+            console.log('[deploy] Deploying started');
             currentStep = DeploySteps.Deploy;
             return execAsync(`rsync -rtl ${configuration.buildPath} ${configuration.deployPath}`);
         })
@@ -159,15 +162,17 @@ function build(branch) {
             console.log('[deploy] DeployResult:', deployResult);
         })
         .then(() => {
+            console.log('[deploy] Post Deploy started');
             currentStep = DeploySteps.PostDeploy;
             return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${branch.commit}/'`);
         })
         .then((markCommitResult: any) => {
-            console.log('[deploy] Including commit done');
-            console.log('[deploy] MarkCommitResult:', markCommitResult);
+            console.log('[deploy] Post Deploy done');
+            console.log('[deploy] PostDeployResult:', markCommitResult);
         })
         .then(() => {
             // restart servers
+            console.log('[deploy] Restarting started');
             if (!configuration.restartScript) return;
 
             currentStep = DeploySteps.Restart;
@@ -180,8 +185,7 @@ function build(branch) {
             }
         })
         .then(() => {
-            console.log('[deploy] Deployment success!');
-            console.log('[deploy] BUILD/TEST SUCCESS!, commit: ' + branch.label + ', ' + branch.commit);
+            console.log('[deploy] DEPLOYEMENT SUCCESS!, commit: ' + branch.label + ', ' + branch.commit);
             const text = configuration.successText + '\ncommit:' + branch.label + ', ' + branch.commit;
             const msg = {...formatProgress(text, deploySteps, currentStep), channel: configuration.slackChannel, username: configuration.slackUser, icon_emoji: ':simple_smile:' };
 
@@ -193,7 +197,7 @@ function build(branch) {
             }
         })
         .catch((error) => {
-            console.error(`[deploy] BUILD/TEST ERROR, commit: ${branch.commit}`, error);
+            console.error(`[deploy] DEPLOYMENT FAILED, commit: ${branch.commit}`, error);
             console.error(`[deploy] ERROR Log: ${error.stderr || error}`);
             let aggregateErrors = '' + error.aggregateErrors;
             if (aggregateErrors.length > 500) aggregateErrors = aggregateErrors.substr(-500);
