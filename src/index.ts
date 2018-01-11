@@ -41,17 +41,18 @@ function execParallel(buildTasks: BuildTask, buildPath: string) {
         .mapSeries(tasks, task => {
                 return Promise.map(buildTasks[task], command => execAsync(command, buildPath))
                     .then(result => {
+                        console.log(`[deploy] ${task} - Completed`);
                         progress[task].done = true;
                         return result;
                     })
                     .catch(error => {
+                        console.error(`[deploy] ${task} - failed`, error);
                         progress[task].error = error;
                         throw progress;
                     })
         })
         .then(results => results.reduce((acc, cur) => [...acc, ...cur], []))
         .catch((error) => {
-            console.log('inner ERROR', error);
             throw { aggregateErrors: error };
         })
 }
@@ -83,7 +84,6 @@ function execAsync(args, buildPath: string | null = null) {
 }
 
 function deployFilterFunc(src, dest) {
-    console.log('copy ', src);
     return src.indexOf('node_modules') < 0 && src.indexOf('.git') < 0;
 }
 
@@ -104,10 +104,11 @@ const processing$ = new BehaviorSubject(false);
 
 Observable
     .interval(configuration.poll * 1000)
-    .withLatestFrom(processing$.asObservable())
-    .filter(([, isProcessing]) => !isProcessing)
+    .withLatestFrom(processing$.asObservable(), (i, isProcessing) => isProcessing)
+    .filter(isProcessing => !isProcessing)
+    .startWith(false)
     .flatMap(() => {
-        console.log('[git] Fetching from remote');
+        console.log(`[git] ${new Date().toTimeString()} Fetching from remote`);
         const repo = simpleGitP(configuration.path);
         return repo.fetch()
             .then(x => repo.status().then(status => status.behind))
@@ -124,7 +125,7 @@ Observable
     })
     .subscribe();
 
-processing$.asObservable().subscribe(x => { console.log('[deploy] Processing state changed:', x); });
+processing$.asObservable().skip(1).subscribe(x => { console.log('[deploy] Processing state changed:', x); });
 
 function build(branch) {
     const deploySteps = [DeploySteps.Build, DeploySteps.Test, DeploySteps.Deploy, DeploySteps.PostDeploy, DeploySteps.Restart];
@@ -133,7 +134,6 @@ function build(branch) {
     console.log(`[deploy] Start processing`, branch);
     return Promise.resolve()
         .then(() => {
-            console.log('[deploy] Branch:', branch);
             return execParallel(configuration.buildScript, configuration.buildPath);
         })
         .then((buildResult: any) => {
