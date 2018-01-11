@@ -130,7 +130,7 @@ function build(commit) {
                 })
                 .then((buildResult: any) => {
                     console.log('build done');
-                    console.log('buildResult', buildResult.stdout);
+                    console.log('buildResult', buildResult);
                 })
                 .then(() => {
                     currentStep = DeploySteps.Test;
@@ -138,7 +138,7 @@ function build(commit) {
                 })
                 .then((testResult: any) => {
                     console.log('testing done');
-                    console.log('testResult', testResult.stdout);
+                    console.log('testResult', testResult);
                 })
                 .then(() => {
                     currentStep = DeploySteps.Deploy;
@@ -146,7 +146,7 @@ function build(commit) {
                 })
                 .then((deployResult: any) => {
                     console.log('deploying done');
-                    console.log('deployResult', deployResult.stdout);
+                    console.log('deployResult', deployResult);
                 })
                 .then(() => {
                     currentStep = DeploySteps.PostDeploy;
@@ -154,7 +154,7 @@ function build(commit) {
                 })
                 .then((markCommitResult: any) => {
                     console.log('including commit done');
-                    console.log('markCommitResult', markCommitResult.stdout);
+                    console.log('markCommitResult', markCommitResult);
                 })
                 .then(() => {
                     // restart servers
@@ -166,7 +166,7 @@ function build(commit) {
                 .then((restartResult: any) => {
                     if (restartResult) {
                         console.log('restarting done');
-                        console.log('restartResult', restartResult.stdout);
+                        console.log('restartResult', restartResult);
                     }
                 })
                 .then(() => {
@@ -240,24 +240,26 @@ function formatProgress(text: string, steps: DeploySteps[], currentStep: DeployS
         }
         return hasFailed ? `:double_vertical_bar: ${stepName}` : `:white_check_mark: ${stepName}`;
     });
-    const attachments: any[] = [
-        {
-            'pretext': text,
-            'color': error ? 'danger' : 'good',
-            'title': 'ZEM Sandbox Deployement',
-            'text': progress.join('\n'),
-        }
-    ]
+    let attachments: any[];
     if (error) {
-        attachments.push({
-            'color': 'warning',
-            'mrkdwn_in': ['text'],
-            'text': formatError(error),
-            'title': 'Error details'
-        });
+        return {
+            'attachments': [
+                {
+                    'pretext': text,
+                    'color': error ? 'danger' : 'good',
+                    'title': 'ZEM Sandbox Deployement',
+                    'text': progress.join('\n'),
+                },
+                {
+                    'color': 'warning',
+                    'mrkdwn_in': ['text'],
+                    'text': formatError(error),
+                    'title': 'Error details'
+                }
+            ]
+        };
     }
-
     return {
-        'attachments': attachments
+        'text': text,
     }
 }
