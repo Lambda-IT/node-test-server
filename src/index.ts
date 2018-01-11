@@ -18,7 +18,46 @@ interface Branch {
 
 const fs: any = Promise.promisifyAll(fsExtra);
 
-function execAsync(args) {
+type BuildTask = {
+    [name: string]: string[]
+};
+type TaskProgress = {
+    [name: string]: {
+        done: boolean;
+        error: any;
+    }
+};
+enum DeploySteps {
+    Build,
+    Test,
+    Deploy,
+    PostDeploy,
+    Restart
+}
+
+function execParallel(buildTasks: BuildTask, buildPath: string) {
+    const tasks = Object.keys(buildTasks);
+    const progress: TaskProgress = tasks.reduce((acc, task) => ({...acc, [task]: { done: false }}), {});
+    return Promise
+        .mapSeries(tasks, task => {
+                return Promise.map(buildTasks[task], command => execAsync(command, buildPath))
+                    .then(result => {
+                        progress[task].done = true;
+                        return result;
+                    })
+                    .catch(error => {
+                        progress[task].error = error;
+                        throw progress;
+                    })
+        })
+        .then(results => results.reduce((acc, cur) => [...acc, ...cur], []))
+        .catch((error) => {
+            console.log('inner ERROR', error);
+            throw { aggregateErrors: error };
+        })
+}
+
+function execAsync(args, buildPath: string | null = null) {
     return new Promise(function (resolve, reject) {
         function callback(err, stdout, stderr) {
             if (err) {
@@ -40,7 +79,7 @@ function execAsync(args) {
             }
         }
 
-        const cp = exec(args, callback);
+        const cp = exec(args, { cwd: buildPath }, callback);
     });
 }
 
@@ -56,24 +95,26 @@ processing$.asObservable().do(x => { console.log('processing changed', x); });
 // Use Sync Fork to check for changes in the upstream an update.
 gw.watch(configuration);
 
-const build$ = gw.check$
-.window(processing$.asObservable())
-.withLatestFrom(processing$)
-.flatMap(([c$, isBuilding]) => (isBuilding ? c$.takeLast(1) : c$))
-.flatMap(build);
+gw.result$
+    .window(processing$.asObservable())
+    .withLatestFrom(processing$)
+    .flatMap(([c$, isBuilding]) => (isBuilding ? c$.takeLast(1) : c$))
+    .subscribe(build);
 
-build$.subscribe(info => {
-    console.log(`${new Date().toTimeString()} ${configuration.path} checked`);
+gw.check$.subscribe(info => {
+   console.log(`${new Date().toTimeString()} ${configuration.path} checked`);
 });
 
 function build(commit) {
-    const result: RepoResult & { data?: string[], branch?: Branch } = commit[0];
+    const deploy: RepoResult & { data?: string[], branch?: Branch } = commit;
+    const deploySteps = [DeploySteps.Build, DeploySteps.Test, DeploySteps.Deploy, DeploySteps.PostDeploy, DeploySteps.Restart];
+    let currentStep: DeploySteps = DeploySteps.Build;
 
-    if (result.error) {
-        console.error(`error processing`, result.error);
-        gw.unwatch(result.config);
+    if (deploy.error) {
+        console.error(`error processing`, deploy.error);
+        gw.unwatch(deploy.config);
     } else {
-        if (result.changed === true || configuration.isDebug) {
+        if (deploy.changed === true || configuration.isDebug) {
             console.log(`start processing`, commit);
             processing$.next(true);
 
@@ -83,22 +124,24 @@ function build(commit) {
                     return gitWrapper.getCurrentBranch()
                 })
                 .then(branch => {
-                    result.branch = branch;
+                    deploy.branch = branch;
                     console.log('Branch', branch);
-                    return execAsync(`cd ${configuration.buildPath} && ${configuration.buildScript}`);
+                    return execParallel(configuration.buildScript, configuration.buildPath);
                 })
                 .then((buildResult: any) => {
                     console.log('build done');
                     console.log('buildResult', buildResult.stdout);
                 })
                 .then(() => {
-                    return execAsync(`cd ${configuration.buildPath} && ${configuration.testScript}`);
+                    currentStep = DeploySteps.Test;
+                    return execParallel(configuration.testScript, configuration.buildPath);
                 })
                 .then((testResult: any) => {
                     console.log('testing done');
                     console.log('testResult', testResult.stdout);
                 })
                 .then(() => {
+                    currentStep = DeploySteps.Deploy;
                     return execAsync(`rsync -rtl ${configuration.buildPath} ${configuration.deployPath}`);
                 })
                 .then((deployResult: any) => {
@@ -106,7 +149,8 @@ function build(commit) {
                     console.log('deployResult', deployResult.stdout);
                 })
                 .then(() => {
-                    return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${result.branch.commit}/'`);
+                    currentStep = DeploySteps.PostDeploy;
+                    return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${deploy.branch.commit}/'`);
                 })
                 .then((markCommitResult: any) => {
                     console.log('including commit done');
@@ -116,6 +160,7 @@ function build(commit) {
                     // restart servers
                     if (!configuration.restartScript) return;
 
+                    currentStep = DeploySteps.Restart;
                     return execAsync(`${configuration.restartScript}`);
                 })
                 .then((restartResult: any) => {
@@ -126,15 +171,19 @@ function build(commit) {
                 })
                 .then(() => {
                     console.log('deployment success!');
-                    console.log('BUILD/TEST SUCCESS!, commit: ' + result.branch.label + ', ' + result.branch.commit);
-                    const msg = { text: configuration.successText + '\ncommit:' + result.branch.label + ', ' + result.branch.commit + '\n', channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':simple_smile:' };
+                    console.log('BUILD/TEST SUCCESS!, commit: ' + deploy.branch.label + ', ' + deploy.branch.commit);
+                    const text = configuration.successText + '\ncommit:' + deploy.branch.label + ', ' + deploy.branch.commit;
+                    const msg = {...formatProgress(text, deploySteps, currentStep), channel: configuration.slackChannel, username: configuration.slackUser, icon_emoji: ':simple_smile:' };
 
                     if (!configuration.isDebug && configuration.successText) {
                         return notifySlack(configuration.slackPath, JSON.stringify(msg));
                     }
+                    else {
+                        console.log('slack message:', JSON.stringify(msg, null, 2));
+                    }
                 })
                 .catch((error) => {
-                    console.error(`BUILD/TEST ERROR, commit: ${result.branch.commit}`, error.error);
+                    console.error(`BUILD/TEST ERROR, commit: ${deploy.branch.commit}`, error);
                     // console.error(`Log: ${error.stdout}`);
                     console.error(`ERROR Log: ${error.stderr || error}`);
                     let stdout = '' + error.stdout;
@@ -143,14 +192,72 @@ function build(commit) {
                     let errorLocal = '' + error.error;
                     if (errorLocal.length > 1000) errorLocal = errorLocal.substr(-1000);
 
-                    const msg = { text: configuration.failedText + '\ncommit:' + result.branch.label + ', ' + result.branch.commit + '\n' + stdout + '\nERORR: ' + errorLocal, channel: configuration.slackChannel, link_names: 1, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
+                    const text = configuration.failedText + '\ncommit:' + deploy.branch.label + ', ' + deploy.branch.commit;
+                    const msg = {...formatProgress(text, deploySteps, currentStep, error), channel: configuration.slackChannel, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
                     if (!configuration.isDebug) {
                         return notifySlack(configuration.slackPath, JSON.stringify(msg));
+                    }
+                    else {
+                        console.log('slack message:', JSON.stringify(msg, null, 2));
                     }
                 })
                 .finally(() => {
                     processing$.next(false);
                 });
         }
+    }
+}
+
+function formatAggregateErrors(errors: any) {
+    const indicator = (result) => result.error ? ':small_red_triangle_down:' : (result.done ? ':black_small_square:' : ':white_small_square:');
+    return Object.keys(errors).map(task => {
+        const result = errors[task];
+        return indicator(result) + ` ${task}` + (result.error ? `\n${formatError(result.error)}` : '');
+    }).join('\n');
+}
+
+function formatError(error) {
+    if (error.error && error.error.cmd) {
+        return `\`[${error.error.code}] ${error.error.cmd}\`\n>\`\`\`${error.error.stderr}\`\`\``;
+    }
+    if (error.sterr) {
+        return `\`${error.stderr}\``;
+    }
+    if (error.aggregateErrors) {
+        return formatAggregateErrors(error.aggregateErrors);
+    }
+    return `UNEXPECTED ERROR:\n\`\`\`${error}\`\`\``
+}
+
+function formatProgress(text: string, steps: DeploySteps[], currentStep: DeploySteps, error: any = null) {
+    let hasFailed = false;
+    const progress = steps.map(step => {
+        hasFailed = hasFailed || (step === currentStep && error);
+        const stepName = DeploySteps[step];
+        if (step === currentStep && error) {
+            hasFailed = true;
+            return `:x: ${stepName}`;
+        }
+        return hasFailed ? `:double_vertical_bar: ${stepName}` : `:white_check_mark: ${stepName}`;
+    });
+    const attachments: any[] = [
+        {
+            'pretext': text,
+            'color': error ? 'danger' : 'good',
+            'title': 'ZEM Sandbox Deployement',
+            'text': progress.join('\n'),
+        }
+    ]
+    if (error) {
+        attachments.push({
+            'color': 'warning',
+            'mrkdwn_in': ['text'],
+            'text': formatError(error),
+            'title': 'Error details'
+        });
+    }
+
+    return {
+        'attachments': attachments
     }
 }
