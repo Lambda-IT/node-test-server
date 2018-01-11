@@ -218,10 +218,10 @@ function formatAggregateErrors(errors: any) {
 
 function formatError(error) {
     if (error.error && error.error.cmd) {
-        return `\`[${error.error.code}] ${error.error.cmd}\`\n>\`\`\`${error.error.stderr}\`\`\``;
+        return `\`[${error.error.code}] ${error.error.cmd}\`\n>\`\`\`STDOUT:\n${error.stdout}\`\`\`\n\`\`\`STDERR:\n${error.stderr}\`\`\``;
     }
     if (error.sterr) {
-        return `\`${error.stderr}\``;
+        return `\`\`\`STDOUT:\n${error.stdout}\`\`\`\n\`\`\`STDERR:\n${error.stderr}\`\`\``;
     }
     if (error.aggregateErrors) {
         return formatAggregateErrors(error.aggregateErrors);
