@@ -199,8 +199,8 @@ function build(branch) {
         .catch((error) => {
             console.error(`[deploy] DEPLOYMENT FAILED, commit: ${branch.commit}`, error);
             console.error(`[deploy] ERROR Log: ${error.stderr || error}`);
-            let aggregateErrors = '' + error.aggregateErrors;
-            if (aggregateErrors.length > 500) aggregateErrors = aggregateErrors.substr(-500);
+            let stdout = '' + error.stdout;
+            if (stdout.length > 500) stdout = stdout.substr(-500);
 
             let errorLocal = '' + error.error;
             if (errorLocal.length > 1000) errorLocal = errorLocal.substr(-1000);
@@ -229,10 +229,10 @@ function formatAggregateErrors(errors: any) {
 
 function formatError(error) {
     if (error.error && error.error.cmd) {
-        return `\`[${error.error.code}] ${error.error.cmd}\`\n>\`\`\`aggregateErrors:\n${error.aggregateErrors}\`\`\`\n\`\`\`STDERR:\n${error.stderr}\`\`\``;
+        return `\`[${error.error.code}] ${error.error.cmd}\`\n>\`\`\`STDOUT:\n${error.stdout}\`\`\`\n\`\`\`STDERR:\n${error.stderr}\`\`\``;
     }
     if (error.sterr) {
-        return `\`\`\`aggregateErrors:\n${error.aggregateErrors}\`\`\`\n\`\`\`STDERR:\n${error.stderr}\`\`\``;
+        return `\`\`\`STDOUT:\n${error.stdout}\`\`\`\n\`\`\`STDERR:\n${error.stderr}\`\`\``;
     }
     if (error.aggregateErrors) {
         return formatAggregateErrors(error.aggregateErrors);
