@@ -12,7 +12,7 @@ export const config = {
         'build': ['cd Backend && npm run build', 'cd Frontend && npm run build-fp-prod', 'cd Frontend && npm run build-mv-prod'],
     },
     testScript: {
-        'Unit Tests': ['cd Backend && npm run test-on-mac', 'cd Frontend && npm run test-once-compact']
+        'Unit Tests': ['cd Backend && npm run test-on-prod', 'cd Frontend && npm run test-once-compact']
     },
     restartScript: 'pm2 restart all --update-env'
 };
