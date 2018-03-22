@@ -2,17 +2,17 @@ export const config = {
     path: '/var/zem/build',
     buildPath: '/var/zem/build/',
     deployPath: '/var/www/zem/',
-    slackUser: 'zem-build [sandbox]',
-    failedText: 'ZEM Sandbox build FAILED!',
-    successText: 'ZEM Sandbox build SUCCESS!',
-    branch: 'master',
+    slackUser: 'zem-build [production]',
+    failedText: 'ZEM production build FAILED!',
+    successText: 'ZEM production build SUCCESS!',
+    branch: 'production',
     isDebug: false,
     buildScript: {
         'npm install': ['cd Backend && npm install --no-save --no-progress', 'cd Frontend && npm install --no-save --no-progress'],
-        'build': ['cd Backend && npm run build', 'cd Frontend && npm run build-fp-sandbox', 'cd Frontend && npm run build-mv-sandbox'],
+        'build': ['cd Backend && npm run build', 'cd Frontend && npm run build-fp-prod', 'cd Frontend && npm run build-mv-prod'],
     },
     testScript: {
         'Unit Tests': ['cd Backend && npm run test-on-mac', 'cd Frontend && npm run test-once-compact']
     },
-    restartScript: 'pm2 restart "zem-web-api (MV)" --update-env && pm2 restart "zem-web-api (FP)" --update-env'
+    restartScript: 'pm2 restart all --update-env'
 };
