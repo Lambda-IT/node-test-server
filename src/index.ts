@@ -258,7 +258,7 @@ function formatProgress(text: string, steps: DeploySteps[], currentStep: DeployS
                 {
                     'pretext': text,
                     'color': error ? 'danger' : 'good',
-                    'title': 'ZEM Sandbox Deployement',
+                    'title': 'ZEM Deployement',
                     'text': progress.join('\n'),
                 },
                 {
