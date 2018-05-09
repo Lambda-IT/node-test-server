@@ -129,6 +129,7 @@ Observable
     .flatMap(async () => {
         console.log(`[git] ${new Date().toTimeString()} Fetching from remote`);
         const repo = simpleGitP(configuration.path);
+        await repo.fetch();
         const behind = (await repo.status()).behind;
         console.log(`[git] Repository is ${behind} commit(s) behind`);
         if (behind > 0 || configuration.isDebug) {
