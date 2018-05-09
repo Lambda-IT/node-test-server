@@ -6,7 +6,7 @@ import * as simpleGit from 'simple-git';
 import * as simpleGitP from 'simple-git/promise';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { exec } from 'child_process';
-import * as Promise from 'bluebird';
+import * as BPromise from 'bluebird';
 import * as fsExtra from 'fs-extra';
 
 interface Branch {
@@ -15,7 +15,7 @@ interface Branch {
     label: string
 }
 
-const fs: any = Promise.promisifyAll(fsExtra);
+const fs: any = BPromise.promisifyAll(fsExtra);
 
 type BuildTask = {
     [name: string]: string[]
@@ -34,12 +34,16 @@ enum DeploySteps {
     Restart
 }
 
+function getCurrentDate() {
+    return new Date().toISOString();
+};
+
 function execParallel(buildTasks: BuildTask, buildPath: string) {
     const tasks = Object.keys(buildTasks);
     const progress: TaskProgress = tasks.reduce((acc, task) => ({...acc, [task]: { done: false }}), {});
-    return Promise
+    return BPromise
         .mapSeries(tasks, task => {
-                return Promise.map(buildTasks[task], command => execAsync(command, buildPath))
+                return BPromise.map(buildTasks[task], command => execAsync(command, buildPath))
                     .then(result => {
                         console.log(`[deploy] ${task} - Completed`);
                         progress[task].done = true;
@@ -58,7 +62,7 @@ function execParallel(buildTasks: BuildTask, buildPath: string) {
 }
 
 function execAsync(args, buildPath: string | null = null) {
-    return new Promise(function (resolve, reject) {
+    return new BPromise(function (resolve, reject) {
         function callback(error, stdout, stderr) {
             if (error) {
                 console.error(`[deploy] X "${args}"`, error);
@@ -90,7 +94,7 @@ function deployFilterFunc(src, dest) {
 }
 
 function getCurrentBranch() {
-    return new Promise((resolve, reject) => {
+    return new BPromise((resolve, reject) => {
         simpleGit(configuration.path).branch((error, result) => {
             if (error) {
                 reject(error);
@@ -102,6 +106,19 @@ function getCurrentBranch() {
     })
 }
 
+function resetRepo() {
+    return new BPromise((resolve, reject) => {
+        simpleGit(configuration.path).reset('hard', (error, result) => {
+            if (error) {
+                reject(error);
+            }
+            else {
+                resolve(result);
+            }
+        });
+    });
+}
+
 const processing$ = new BehaviorSubject(false);
 
 Observable
@@ -109,21 +126,19 @@ Observable
     .withLatestFrom(processing$.asObservable(), (i, isProcessing) => isProcessing)
     .filter(isProcessing => !isProcessing)
     .startWith(false)
-    .flatMap(() => {
+    .flatMap(async () => {
         console.log(`[git] ${new Date().toTimeString()} Fetching from remote`);
         const repo = simpleGitP(configuration.path);
-        return repo.fetch()
-            .then(x => repo.status().then(status => status.behind))
-            .then(behind => {
-                console.log(`[git] Repository is ${behind} commit(s) behind`);
-                if (behind > 0 || configuration.isDebug) {
-                    processing$.next(true);
-                    console.log(`[git] Pulling from remote`);
-                    return repo.pull()
-                        .then(() => getCurrentBranch())
-                        .then(branch => build(branch));
-                }
-            })
+        const behind = (await repo.status()).behind;
+        console.log(`[git] Repository is ${behind} commit(s) behind`);
+        if (behind > 0 || configuration.isDebug) {
+            processing$.next(true);
+            await resetRepo();
+            console.log(`[git] Pulling from remote`);
+            await repo.pull();
+            const branch = await getCurrentBranch();
+            await build(branch);
+        }
     })
     .subscribe();
 
@@ -133,8 +148,8 @@ function build(branch) {
     const deploySteps = [DeploySteps.Build, DeploySteps.Test, DeploySteps.Deploy, DeploySteps.PostDeploy, DeploySteps.Restart];
     let currentStep: DeploySteps = DeploySteps.Build;
 
-    console.log(`[deploy] Start processing`, branch);
-    return Promise.resolve()
+    console.log(`[deploy] ${getCurrentDate()} - Start processing`, branch);
+    return BPromise.resolve()
         .then(() => {
             console.log('[deploy] Build started');
             return execParallel(configuration.buildScript, configuration.buildPath);
@@ -185,7 +200,7 @@ function build(branch) {
             }
         })
         .then(() => {
-            console.log('[deploy] DEPLOYEMENT SUCCESS!, commit: ' + branch.label + ', ' + branch.commit);
+            console.log(`[deploy] ${getCurrentDate()} - DEPLOYEMENT SUCCESS!, commit: ${branch.label}, ${branch.commit}`);
             const text = configuration.successText + '\ncommit:' + branch.label + ', ' + branch.commit;
             const msg = {...formatProgress(text, deploySteps, currentStep), channel: configuration.slackChannel, username: configuration.slackUser, icon_emoji: ':simple_smile:' };
 
@@ -197,7 +212,7 @@ function build(branch) {
             }
         })
         .catch((error) => {
-            console.error(`[deploy] DEPLOYMENT FAILED, commit: ${branch.commit}`, error);
+            console.error(`[deploy] ${getCurrentDate()} - DEPLOYMENT FAILED, commit: ${branch.commit}`, error);
             console.error(`[deploy] ERROR Log: ${error.stderr || error}`);
             let stdout = '' + error.stdout;
             if (stdout.length > 500) stdout = stdout.substr(-500);

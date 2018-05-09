@@ -12,8 +12,13 @@ const config = {
     strict: false,
     path: 'd:/projects/build-test',
     buildPath: 'd:/projects/build-test',
-    buildScript: 'cd Backend && npm install && npm run build',
-    testScript: 'cd Backend && npm test',
+    buildScript: {
+        'npm install': ['cd Backend && npm install --no-save --no-progress', 'cd Frontend && npm install --no-save --no-progress'],
+        'build': ['cd Backend && npm run build', 'cd Frontend && npm run build-fp-sandbox', 'cd Frontend && npm run build-mv-sandbox'],
+    },
+    testScript: {
+        'Unit Tests': ['cd Backend && npm test', 'cd Frontend && npm run test-once-compact']
+    },
     deployPath: 'd:/projects/deploy-test',
     // restartScript: 'pm2 zem-web-api restart'
     commitTag : '%%COMMIT%%'
