@@ -14,5 +14,8 @@ export const config = {
     testScript: {
         'Unit Tests': ['cd Backend && npm run test-on-mac', 'cd Frontend && npm run test-once-compact']
     },
+    postTasks: {
+        'e22': ['cd Frontend && npm run e2e-mv-sandbox']
+    },
     restartScript: 'pm2 restart "zem-web-api (MV)" --update-env && pm2 restart "zem-web-api (FP)" --update-env'
 };

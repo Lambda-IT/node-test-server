@@ -31,7 +31,8 @@ enum DeploySteps {
     Test,
     Deploy,
     PostDeploy,
-    Restart
+    Restart,
+    PostTasks,
 }
 
 function getCurrentDate() {
@@ -206,10 +207,11 @@ function build(branch) {
             const msg = {...formatProgress(text, deploySteps, currentStep), channel: configuration.slackChannel, username: configuration.slackUser, icon_emoji: ':simple_smile:' };
 
             if (!configuration.isDebug && configuration.successText) {
-                return notifySlack(configuration.slackPath, JSON.stringify(msg));
+                return notifySlack(configuration.slackPath, JSON.stringify(msg)).then(notification => ({ success: true, notification }));
             }
             else {
                 console.log('[deploy] Slack message:', JSON.stringify(msg, null, 2));
+                return { success: true, notification: null }
             }
         })
         .catch((error) => {
@@ -224,10 +226,39 @@ function build(branch) {
             const text = configuration.failedText + '\ncommit:' + branch.label + ', ' + branch.commit;
             const msg = {...formatProgress(text, deploySteps, currentStep, error), channel: configuration.slackChannel, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
             if (!configuration.isDebug) {
-                return notifySlack(configuration.slackPath, JSON.stringify(msg));
+                return notifySlack(configuration.slackPath, JSON.stringify(msg)).then(notification => ({ success: false, notification }));
             }
             else {
                 console.log('[deploy] Slack message:', JSON.stringify(msg, null, 2));
+                return { success: false, notification: null };
+            }
+        })
+        .then(async ({ success, notification }) => {
+            if (success) {
+                console.log('[deploy] Post Tasks started');
+                currentStep = DeploySteps.PostTasks;
+                const postTasksResult = await execParallel(configuration.postTasks, configuration.buildPath);
+                console.log('[deploy] Post Tasks done');
+            }
+            return notification;
+        })
+        .catch((error) => {
+            console.error(`[deploy] ${getCurrentDate()} - POST TASKS FAILED, commit: ${branch.commit}`, error);
+            console.error(`[deploy] ERROR Log: ${error.stderr || error}`);
+            let stdout = '' + error.stdout;
+            if (stdout.length > 500) stdout = stdout.substr(-500);
+
+            let errorLocal = '' + error.error;
+            if (errorLocal.length > 1000) errorLocal = errorLocal.substr(-1000);
+
+            const text = configuration.failedText + '\ncommit:' + branch.label + ', ' + branch.commit;
+            const msg = {...formatProgress(text, deploySteps, currentStep, error), channel: configuration.slackChannel, username: configuration.slackUser, icon_emoji: ':monkey_face:' };
+            if (!configuration.isDebug) {
+                return notifySlack(configuration.slackPath, JSON.stringify(msg)).then(notification => ({ success: false, notification }));
+            }
+            else {
+                console.log('[deploy] Slack message:', JSON.stringify(msg, null, 2));
+                return { success: false, notification: null };
             }
         })
         .finally(() => {

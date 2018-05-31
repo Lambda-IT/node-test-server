@@ -19,6 +19,9 @@ const config = {
     testScript: {
         'Unit Tests': ['cd Backend && npm test', 'cd Frontend && npm run test-once-compact']
     },
+    postTasks: {
+        'e22': ['cd Frontend && npm run e2e']
+    },
     deployPath: 'd:/projects/deploy-test',
     // restartScript: 'pm2 zem-web-api restart'
     commitTag : '%%COMMIT%%'
