@@ -120,13 +120,26 @@ function resetRepo() {
     });
 }
 
+function cleanRepo() {
+    return new BPromise((resolve, reject) => {
+        simpleGit(configuration.path).clean('f', (error, result) => {
+            if (error) {
+                reject(error);
+            }
+            else {
+                resolve(result);
+            }
+        });
+    });
+}
+
 const processing$ = new BehaviorSubject(false);
 
 Observable
     .interval(configuration.poll * 1000)
     .withLatestFrom(processing$.asObservable(), (i, isProcessing) => isProcessing)
-    .filter(isProcessing => !isProcessing)
     .startWith(false)
+    .filter(isProcessing => !isProcessing)
     .flatMap(async () => {
         console.log(`[git] ${new Date().toTimeString()} Fetching from remote`);
         const repo = simpleGitP(configuration.path);
@@ -136,6 +149,7 @@ Observable
         if (behind > 0 || configuration.isDebug) {
             processing$.next(true);
             await resetRepo();
+            await cleanRepo();
             console.log(`[git] Pulling from remote`);
             await repo.pull();
             const branch = await getCurrentBranch();
