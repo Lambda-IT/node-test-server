@@ -156,6 +156,7 @@ Observable
             await build(branch);
         }
     })
+    .retryWhen(errors => errors.delay(configuration.poll * 1000).take(10))
     .subscribe();
 
 processing$.asObservable().skip(1).subscribe(x => { console.log('[deploy] Processing state changed:', x); });
