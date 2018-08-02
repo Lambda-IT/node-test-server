@@ -12,7 +12,7 @@ export const config = {
         'build': ['cd Backend && npm run build', 'cd Frontend && npm run build-fp-sandbox', 'cd Frontend && npm run build-mv-sandbox'],
     },
     testScript: {
-        'Unit Tests': ['cd Backend && npm run test-on-mac', 'cd Frontend && npm run test-once-compact']
+        'Unit Tests': ['cd Backend && npm run test-on-mac 2> /dev/null | egrep "^([#]|not)"', 'cd Frontend && npm run test-once-compact']
     },
     postTasks: {
         'e22': ['cd Frontend && npm run e2e-mv-sandbox']

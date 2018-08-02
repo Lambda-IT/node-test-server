@@ -12,7 +12,7 @@ export const config = {
         'build': ['cd Backend && npm run build', 'cd Frontend && npm run build-fp-integration', 'cd Frontend && npm run build-mv-integration'],
     },
     testScript: {
-        'Unit Tests': ['cd Backend && npm run test-on-int', 'cd Frontend && npm run test-once-compact']
+        'Unit Tests': ['cd Backend && npm run test-on-int 2> /dev/null | egrep "^([#]|not)"', 'cd Frontend && npm run test-once-compact']
     },
     restartScript: 'pm2 restart all --update-env'
 };
