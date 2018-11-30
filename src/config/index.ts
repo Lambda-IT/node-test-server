@@ -27,4 +27,4 @@ const config = {
     commitTag : '%%COMMIT%%'
 }
 
-export const configuration = _.merge(config, require(`./${process.env.NODE_ENV || 'development'}`).config || {});
+export const configuration = {...config, ...(require(`./${process.env.NODE_ENV || 'development'}`).config || {})};
