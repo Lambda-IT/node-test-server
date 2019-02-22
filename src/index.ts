@@ -194,13 +194,18 @@ function build(branch) {
             console.log('[deploy] DeployResult:', deployResult);
         })
         .then(() => {
-            console.log('[deploy] Post Deploy started');
-            currentStep = DeploySteps.PostDeploy;
-            return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${branch.commit}/'`);
+            if (!!configuration.commitTag) {
+                console.log('[deploy] Post Deploy started');
+                currentStep = DeploySteps.PostDeploy;
+                return execAsync(`grep -rli --exclude-dir=node_modules '${configuration.commitTag}' ${configuration.deployPath} | xargs sed -i '' 's/${configuration.commitTag}/${branch.commit}/'`);
+            }
+            return -1;
         })
         .then((markCommitResult: any) => {
-            console.log('[deploy] Post Deploy done');
-            console.log('[deploy] PostDeployResult:', markCommitResult);
+            if (markCommitResult !== -1) {
+                console.log('[deploy] Post Deploy done');
+                console.log('[deploy] PostDeployResult:', markCommitResult);
+            }
         })
         .then(() => {
             // restart servers
