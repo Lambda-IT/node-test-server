@@ -86,7 +86,7 @@ function execAsync(args, buildPath: string | null = null) {
             }
         }
 
-        const cp = exec(args, { cwd: buildPath, env: { ...process.env, ...configuration.environmenVariables } }, callback);
+        const cp = exec(args, { cwd: buildPath, env: { ...process.env, ...configuration.environmentVariables } }, callback);
     });
 }
 
