@@ -23,6 +23,7 @@ const config = {
         'e22': ['cd Frontend && npm run e2e']
     },
     deployPath: 'd:/projects/deploy-test',
+    environmentVariables: {},
     // restartScript: 'pm2 zem-web-api restart'
     commitTag : '%%COMMIT%%'
 }

@@ -86,7 +86,7 @@ function execAsync(args, buildPath: string | null = null) {
             }
         }
 
-        const cp = exec(args, { cwd: buildPath }, callback);
+        const cp = exec(args, { cwd: buildPath, env: { ...process.env, ...configuration.environmenVariables } }, callback);
     });
 }
 
@@ -320,7 +320,6 @@ function formatProgress(text: string, steps: DeploySteps[], currentStep: DeployS
         }
         return hasFailed ? `:double_vertical_bar: ${stepName}` : `:white_check_mark: ${stepName}`;
     });
-    let attachments: any[];
     if (error) {
         return {
             'attachments': [
