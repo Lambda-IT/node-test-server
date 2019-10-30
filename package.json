@@ -4,7 +4,8 @@
   "description": "test server for automated tests and deployment",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test"
+    "test": "mocha test",
+    "build": "node_modules/typescript/bin/tsc -p ."
   },
   "repository": {
     "type": "git",
