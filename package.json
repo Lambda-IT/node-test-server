@@ -20,7 +20,7 @@
   "dependencies": {
     "bluebird": "^3.5.0",
     "fs-extra": "^2.1.2",
-    "simple-git": "^1.85.0",
+    "simple-git": "^3.5.0",
     "lodash": "^4.17.4",
     "rxjs": "^5.5.6"
   },
